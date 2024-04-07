@@ -285,7 +285,18 @@ async def get_email(message: types.Message, state: FSMContext):
 
 async def main():
     await db.connect()
-
+    await db.add_item(
+        name="Scroll",
+        description="is Ethereum's second tier scaling solution that reduces transaction cost and speeds up transfers",
+        price=150,
+        image_url="https://app.airdrop-hunter.site/images/scroll.png"
+    )
+    await db.add_item(
+        name="Grass",
+        description="Grass is the underlying infrastructure that powers AI models. By installing the Grass",
+        price=150,
+        image_url="https://app.airdrop-hunter.site/images/grass_logo_updated.png"
+    )
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(form_router)
