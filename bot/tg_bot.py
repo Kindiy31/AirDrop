@@ -229,7 +229,10 @@ class HandlerUser:
             pass
 
     async def delete_message(self, msg_id):
-        await bot.delete_message(chat_id=self.id_user, message_id=msg_id)
+        try:
+            await bot.delete_message(chat_id=self.id_user, message_id=msg_id)
+        except:
+            pass
 
     async def set_language(self):
         language = self.states[1]
