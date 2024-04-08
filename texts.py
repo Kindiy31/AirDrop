@@ -97,6 +97,17 @@ Price: <b>{item.price} {self.token}</b>"""
     def not_purchases(self):
         return "У вас ще немає покупок"
 
+    def paste_photo_or_text(self):
+        return "Відправте мені фото, відео або текст"
+
+    def admin_menu(self):
+        return "Ви в адміністративному меню"
+
+    def mailing(self):
+        return "Розсилка"
+
+    def paste_caption(self):
+        return "Введіть опис"
 
 class EnLanguage(UaLanguage):
     def __init__(self):

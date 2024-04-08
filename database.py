@@ -113,6 +113,19 @@ class Database:
         users = await self.take_for_table(id_model=id_user, model=User)
         return users
 
+    async def add_balance(self, id_user: str or int, amount: int or float) -> User or None:
+        user = await self.take_users(id_user=id_user)
+        if not user:
+            return None
+        else:
+            user.balance = round(float(eval(f"{user.balance} + {amount}")), 2)
+            await self.update(
+                table=User,
+                data={User.balance: user.balance},
+                where=[User.id == id_user]
+            )
+            return user
+
     async def take_items(self, id_item: int = None) -> list[Item] or Item or None:
         items = await self.take_for_table(id_model=id_item, model=Item)
         return items

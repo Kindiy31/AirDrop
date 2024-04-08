@@ -3,6 +3,7 @@ import sys
 import asyncio
 import logging
 from aiogram import types
+from aiogram.types import ContentType
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram import Bot, Dispatcher, F, Router, html
 from aiogram.fsm.state import State, StatesGroup
@@ -27,6 +28,7 @@ bot = Bot(token=config.TOKEN,
 
 class States(StatesGroup):
     email = State()
+    mailing = State()
 
 
 def get_name_with_link(user=None, user_username=None, user_name=None):
@@ -95,6 +97,65 @@ class HandlerUser:
         await bot.send_message(self.id_user, self.language.choose_language(),
                                reply_markup=self.kb.choose_language())
 
+    async def start_mailing(self):
+        msg = await bot.send_message(self.id_user, self.language.paste_photo_or_text(),
+                                     reply_markup=self.kb.back())
+        msgs_to_delete = [msg.message_id,]
+        await self.state.update_data(
+            msgs_to_delete=msgs_to_delete
+        )
+        await self.state.set_state(States.mailing)
+
+    async def finish_mailing(self):
+        data = await self.state.get_data()
+        content_type = data.get('content_type')
+        users = await db.take_users()
+        if content_type == ContentType.TEXT:
+            for user in users:
+                await bot.send_message(user.id, data.get('text'))
+        elif content_type == ContentType.PHOTO:
+            await self.append_msgs_to_delete(self.message.message_id)
+            if self.message.content_type == ContentType.TEXT:
+                for user in users:
+                    await bot.send_photo(user.id, data.get('file_id'),
+                                         caption=self.message.text)
+        elif content_type == ContentType.VIDEO:
+            await self.append_msgs_to_delete(self.message.message_id)
+            if self.message.content_type == ContentType.TEXT:
+                for user in users:
+                    await bot.send_video(user.id, data.get('file_id'),
+                                         caption=self.message.text)
+        await self.starting_bot(is_edit=data.get('msg_to_change'))
+
+    async def append_msgs_to_delete(self, message_id):
+        data = await self.state.get_data()
+        msgs_to_delete = data.get('msgs_to_delete')
+        if not msgs_to_delete:
+            msgs_to_delete = []
+        msgs_to_delete.append(message_id)
+        await self.state.update_data(
+            msgs_to_delete=msgs_to_delete
+        )
+
+    async def get_fist_mail(self):
+        await self.append_msgs_to_delete(self.message.message_id)
+        if self.message.content_type == ContentType.TEXT:
+            await self.state.update_data(
+                content_type=self.message.content_type,
+                text=self.message.text
+            )
+            await self.finish_mailing()
+        elif self.message.content_type == ContentType.PHOTO or self.message.content_type == ContentType.VIDEO:
+            await self.state.update_data(
+                content_type=self.message.content_type,
+                file_id=self.message.photo[-1].file_id if self.message.content_type == ContentType.PHOTO
+                else self.message.video.file_id
+            )
+            msg = await bot.send_message(self.id_user, self.language.paste_caption(),
+                                         reply_markup=self.kb.back())
+            await self.append_msgs_to_delete(msg.message_id)
+
+
     async def callback_manager(self):
         if self.states:
             first_state = self.states[0]
@@ -110,6 +171,24 @@ class HandlerUser:
                 await self.market_callback()
             elif first_state == "mySales":
                 await self.my_sales_callback()
+            elif first_state == "admin":
+                await self.admin_wrapper()
+
+    async def admin_wrapper(self):
+        if self.user.is_admin:
+            if len(self.states) == 1:
+                await self.start_admin()
+            elif len(self.states) == 2:
+                if self.states[1] == "mailing":
+                    await self.state.update_data(
+                        msg_to_change=self.call
+                    )
+                    await self.start_mailing()
+
+    async def start_admin(self):
+        if self.user.is_admin:
+            await self.edit_via_call(text=self.language.admin_menu(),
+                                     reply_markup=self.kb.admin())
 
     async def my_sales_callback(self):
         purchases = await db.take_purchases(id_user=self.id_user)
@@ -281,6 +360,22 @@ async def get_email(message: types.Message, state: FSMContext):
         await handler.send_choose_language()
     else:
         await handler.get_email()
+
+
+@form_router.message(States.mailing)
+async def get_email(message: types.Message, state: FSMContext):
+    handler = HandlerUser(id_user=message.from_user.id, message=message, state=state)
+    nothing_language = await handler.connect()
+    if nothing_language:
+        await handler.send_choose_language()
+    else:
+        data = await state.get_data()
+        content_type = data.get('content_type')
+        if content_type:
+            await handler.finish_mailing()
+        else:
+            await handler.get_fist_mail()
+
 
 
 async def main():

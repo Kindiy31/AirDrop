@@ -3,6 +3,7 @@ from sqlalchemy.types import Enum as SAEnum
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
+from pydantic import BaseModel
 
 
 Base = declarative_base()
@@ -48,3 +49,8 @@ class Item(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     purchases = relationship("Purchase", back_populates="items")
+
+
+class BalanceAddRequest(BaseModel):
+    user_id: int
+    amount: float

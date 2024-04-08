@@ -109,6 +109,18 @@ class Keyboards:
         markup = self.generate_inline_markup(buttons=buttons, back=True)
         return markup
 
+    def admin(self):
+        buttons = [
+            [
+                {
+                    "name": self.language.mailing(),
+                    "callback": "admin_mailing"
+                }
+            ]
+        ]
+        markup = self.generate_inline_markup(buttons=buttons, back=True)
+        return markup
+
     def go_to_home_menu(self):
         buttons = [
             [
