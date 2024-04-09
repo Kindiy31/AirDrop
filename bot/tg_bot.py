@@ -330,6 +330,9 @@ class HandlerUser:
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return bool(re.match(pattern, email))
 
+    async def add_balance(self, amount):
+        await bot.send_message(self.id_user, self.language.new_deposit(amount=amount))
+
 
 # Хендлер на команду /start
 @form_router.message(CommandStart())

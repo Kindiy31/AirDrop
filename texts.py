@@ -109,6 +109,9 @@ Price: <b>{item.price} {self.token}</b>"""
     def paste_caption(self):
         return "Введіть опис"
 
+    def new_deposit(self, amount):
+        return f"Ваш баланс поповнено на {amount} {self.token}"
+
 class EnLanguage(UaLanguage):
     def __init__(self):
         super().__init__()

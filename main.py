@@ -11,6 +11,10 @@ db = tg_bot.db
 @app.get("/api/v1/balance/add")
 async def read_root(request: BalanceAddRequest):
     response = await db.add_balance(id_user=request.user_id, amount=request.amount)
+    if response:
+        handler = tg_bot.HandlerUser(id_user=request.user_id)
+        await handler.connect()
+        await handler.add_balance(amount=request.amount)
     return response
 
 
