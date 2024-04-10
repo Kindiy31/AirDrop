@@ -14,7 +14,6 @@ from bot.keyboards import Keyboards, get_language
 
 sys.path.append('..')
 
-from models import User
 import config
 from database import Database
 
@@ -29,6 +28,8 @@ bot = Bot(token=config.TOKEN,
 class States(StatesGroup):
     email = State()
     mailing = State()
+    deposit = State()
+    withdraw = State()
 
 
 def get_name_with_link(user=None, user_username=None, user_name=None):
@@ -155,7 +156,6 @@ class HandlerUser:
                                          reply_markup=self.kb.back())
             await self.append_msgs_to_delete(msg.message_id)
 
-
     async def callback_manager(self):
         if self.states:
             first_state = self.states[0]
@@ -178,12 +178,28 @@ class HandlerUser:
         if self.user.is_admin:
             if len(self.states) == 1:
                 await self.start_admin()
-            elif len(self.states) == 2:
+            elif len(self.states) >= 2:
                 if self.states[1] == "mailing":
                     await self.state.update_data(
                         msg_to_change=self.call
                     )
                     await self.start_mailing()
+                elif self.states[1] == "transaction":
+                    await self.transaction_modify_admin()
+
+    async def transaction_modify_admin(self):
+        if len(self.states) == 4:
+            id_transaction = int(self.states[2])
+            modify_type = self.states[3]
+            transaction = await db.take_transactions(id_transaction=id_transaction)
+            if transaction.status == 1:
+                transaction = await db.modify_transaction(transaction=transaction, modify_type=modify_type)
+                creator = await db.take_users(id_user=transaction.user_id)
+                await bot.send_message(creator.id, get_language(language=creator.language).modifided_transaction(transaction=transaction))
+                await self.edit_via_call(text=self.language.transaction_created(transaction=transaction, is_admin=True))
+            else:
+                await self.edit_via_call(text=self.language.transaction_created(transaction=transaction, is_admin=True))
+                await bot.send_message(self.id_user, self.language.transaction_modifided_before())
 
     async def start_admin(self):
         if self.user.is_admin:
@@ -245,6 +261,98 @@ class HandlerUser:
         if len(self.states) == 1:
             await self.edit_via_call(text=self.language.balance_view(user=self.user),
                                      reply_markup=self.kb.balance())
+        elif len(self.states) == 2:
+            if self.states[1] == "deposit" or self.states[1] == "withdraw":
+                if self.states[1] == "deposit":
+                    await self.state.set_state(States.deposit)
+                    transaction_type = 0
+                else:
+                    await self.state.set_state(States.withdraw)
+                    transaction_type = 1
+                await self.state.update_data(
+                    starting=True,
+                    transaction_type=transaction_type
+                )
+                await self.transaction_creating_wrapper()
+
+    async def transaction_creating_wrapper(self):
+        data = await self.state.get_data()
+        transaction_type = data.get('transaction_type')
+        amount = data.get('amount')
+        starting = data.get('starting')
+        if starting:
+            msg = await bot.send_message(self.id_user, self.language.insert_amount(path=self.states[1]),
+                                         reply_markup=self.kb.back())
+            await self.append_msgs_to_delete(message_id=msg.message_id)
+            await self.state.update_data(
+                starting=False
+            )
+        elif not amount:
+            amount = self.message.text
+            if amount.isdigit():
+                await self.state.update_data(
+                    amount=amount
+                )
+                if transaction_type == 0:
+                    transaction_hash = data.get('transaction_hash')
+                    if not transaction_hash:
+                        msg = await bot.send_message(self.id_user, self.language.insert_hash(),
+                                                     reply_markup=self.kb.back())
+                        await self.append_msgs_to_delete(message_id=msg.message_id)
+
+                elif transaction_type ==1:
+                    address = data.get('address')
+                    if not address:
+                        msg = await bot.send_message(self.id_user, self.language.insert_address(),
+                                                     reply_markup=self.kb.back())
+                        await self.append_msgs_to_delete(message_id=msg.message_id)
+            else:
+                msg = await bot.send_message(self.id_user, self.language.only_int(),
+                                             reply_markup=self.kb.back())
+                await self.append_msgs_to_delete(message_id=msg.message_id)
+        else:
+            if transaction_type == 0:
+                transaction_hash = self.message.text
+                await self.state.update_data(
+                    transaction_hash=transaction_hash,
+                    transaction_type=transaction_type
+                )
+            elif transaction_type == 1:
+                address = self.message.text
+                await self.state.update_data(
+                    address=address,
+                    transaction_type=transaction_type
+                )
+            await self.finish_creating_transaction()
+
+    async def finish_creating_transaction(self):
+        data = await self.state.get_data()
+        transaction_type = data.get('transaction_type')
+        amount = data.get('amount')
+        transaction_hash = None
+        address = None
+        item_id = None
+        if transaction_type == 0:
+            transaction_hash = data.get('transaction_hash')
+        elif transaction_type == 1:
+            address = data.get('address')
+        elif transaction_type == 2:
+            item_id = data.get('item_id')
+        transaction = await db.create_transaction(
+            transaction_type=transaction_type,
+            transaction_hash=transaction_hash,
+            address=address,
+            amount=amount,
+            item_id=item_id,
+            user_id=self.id_user
+        )
+        await bot.send_message(self.id_user, self.language.transaction_created(transaction=transaction))
+        admins = await db.take_admins()
+        print(admins)
+        for admin in admins:
+            await bot.send_message(admin.id, self.language.transaction_created(transaction=transaction, is_admin=True),
+                                   reply_markup=self.kb.modify_transaction(id_transaction=transaction.id))
+        await self.starting_bot()
 
     async def clear_old_message(self):
         data = await self.state.get_data()
@@ -378,6 +486,16 @@ async def get_email(message: types.Message, state: FSMContext):
             await handler.finish_mailing()
         else:
             await handler.get_fist_mail()
+
+@form_router.message(States.deposit)
+@form_router.message(States.withdraw)
+async def transaction_wrapper(message: types.Message, state: FSMContext):
+    handler = HandlerUser(id_user=message.from_user.id, message=message, state=state)
+    nothing_language = await handler.connect()
+    if nothing_language:
+        await handler.send_choose_language()
+    else:
+        await handler.transaction_creating_wrapper()
 
 
 

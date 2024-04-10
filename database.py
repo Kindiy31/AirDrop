@@ -113,12 +113,12 @@ class Database:
         users = await self.take_for_table(id_model=id_user, model=User)
         return users
 
-    async def add_balance(self, id_user: str or int, amount: int or float) -> User or None:
+    async def modify_balance(self, id_user: str or int, amount: int or float, operation: str) -> User or None:
         user = await self.take_users(id_user=id_user)
         if not user:
             return None
         else:
-            user.balance = round(float(eval(f"{user.balance} + {amount}")), 2)
+            user.balance = round(float(eval(f"{user.balance} {operation} {amount}")), 2)
             await self.update(
                 table=User,
                 data={User.balance: user.balance},
@@ -129,6 +129,11 @@ class Database:
     async def take_items(self, id_item: int = None) -> list[Item] or Item or None:
         items = await self.take_for_table(id_model=id_item, model=Item)
         return items
+
+    async def take_transactions(self, id_transaction: int = None) -> list[Transaction] or Transaction or None:
+        transactions = await self.take_for_table(id_model=id_transaction, model=Transaction)
+        return transactions
+
 
     async def take_purchases(self, id_purchase: int = None, id_user: int or str = None) -> list[Purchase] or Purchase or None:
         if id_user:
@@ -183,3 +188,46 @@ class Database:
 
     async def set_email(self, email, id_user):
         await self.update(User, {User.email: email}, where=[User.id == id_user])
+
+    async def create_transaction(self, transaction_type, user_id, item_id, amount, address, transaction_hash, status=None):
+        transaction = Transaction(
+            transaction_type=transaction_type,
+            transaction_hash=transaction_hash,
+            user_id=user_id,
+            item_id=item_id,
+            amount=amount,
+            address=address
+        )
+        if transaction.transaction_type == 1:
+            operation = '-'
+            await self.modify_balance(id_user=user_id, amount=transaction.amount, operation=operation)
+        if status:
+            transaction.status = status
+        await self.add(model=transaction)
+        return transaction
+
+    async def take_admins(self):
+        admins = await self.get_data(table=User, where=[User.is_admin == 1])
+        return admins
+
+    async def modify_transaction(self, transaction, modify_type) -> Transaction:
+        user_id = transaction.user_id
+        if modify_type == "confirm":
+            status = 2
+            if transaction.transaction_type == 0:
+                operation = '+'
+                await self.modify_balance(id_user=user_id, amount=transaction.amount, operation=operation)
+        elif modify_type == "cancel":
+            status = 3
+            if transaction.transaction_type == 1:
+                operation = '+'
+                await self.modify_balance(id_user=user_id, amount=transaction.amount, operation=operation)
+        else:
+            status = 1
+        transaction.status = status
+        await self.update(
+            table=Transaction,
+            data={Transaction.status: status},
+            where=[Transaction.id == transaction.id]
+        )
+        return transaction

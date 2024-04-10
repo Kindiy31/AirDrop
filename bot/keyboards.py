@@ -184,3 +184,19 @@ class Keyboards:
         ]
         markup = self.generate_inline_markup(buttons=buttons, back=True)
         return markup
+
+    def modify_transaction(self, id_transaction):
+        buttons = [
+            [
+                {
+                    "name": self.language.confirm(),
+                    "callback": f"admin_transaction_{id_transaction}_confirm"
+                },
+                {
+                    "name": self.language.cancel(),
+                    "callback": f"admin_transaction_{id_transaction}_cancel"
+                }
+            ]
+        ]
+        markup = self.generate_inline_markup(buttons=buttons)
+        return markup
