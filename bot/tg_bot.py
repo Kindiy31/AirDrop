@@ -259,7 +259,6 @@ class HandlerUser:
                                                reply_markup=self.kb.back())
                 await self.state.update_data(
                     msgs_to_delete=[msg.message_id, ],
-                    msg_to_change=self.call
                 )
 
     async def balance_callback(self):
