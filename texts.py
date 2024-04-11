@@ -177,6 +177,11 @@ ID предмету: {transaction.item_id}
     def cancel(self):
         return "Відхилити"
 
+    def not_enough_money(self, user: User):
+        return f"""У вас не достатньо коштів.
+
+Ваш баланс: {user.balance} {self.token}"""
+
 
 class EnLanguage(UaLanguage):
     def __init__(self):
@@ -343,6 +348,11 @@ Waiting for administrator confirmation"""
 
     def cancel(self):
         return "Reject"
+
+    def not_enough_money(self, user: User):
+        return f"""Insufficient funds.
+
+Your balance: {user.balance} {self.token}"""
 
 
 

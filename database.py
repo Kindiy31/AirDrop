@@ -168,13 +168,26 @@ class Database:
         await self.add(item)
         return item
 
-    async def buy_item(self, id_user, id_item) -> Purchase:
-        purchase = Purchase(
-            user_id=id_user,
-            item_id=id_item,
-        )
-        await self.add(purchase)
-        return purchase
+    async def buy_item(self, id_user, id_item) -> Purchase or None:
+        item = await self.take_items(id_item=id_item)
+        if item:
+            user = await self.modify_balance(id_user=id_user, amount=item.price, operation='-')
+            if user:
+                await self.create_transaction(
+                    transaction_hash=None,
+                    transaction_type=3,
+                    address=None,
+                    item_id=item.id,
+                    user_id=user.id,
+                    status=3,
+                    amount=item.price
+                )
+                purchase = Purchase(
+                    user_id=id_user,
+                    item_id=id_item,
+                )
+                await self.add(purchase)
+                return purchase
 
     async def take_for_table(self, id_model: int or str, model: Base) -> list[Base] or Base or None:
         if id_model:

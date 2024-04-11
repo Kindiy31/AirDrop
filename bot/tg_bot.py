@@ -246,12 +246,17 @@ class HandlerUser:
         elif len(self.states) == 3:
             if self.states[1] == "buy":
                 item_id = int(self.states[2])
-                purchase = await db.buy_item(id_user=self.id_user, id_item=item_id)
                 item = await db.take_items(id_item=item_id)
-                await self.starting_bot(is_edit=True)
-                msg = await bot.send_photo(self.id_user, item.image_url,
-                                           caption=self.language.preview_purchase(item=item, purchase=purchase),
-                                           reply_markup=self.kb.back())
+                if self.user.balance < item.price:
+                    msg = await bot.send_message(self.id_user, self.language.not_enough_money(user=self.user),
+                                                 reply_markup=self.kb.back())
+                else:
+                    purchase = await db.buy_item(id_user=self.id_user, id_item=item_id)
+                    item = await db.take_items(id_item=item_id)
+                    await self.starting_bot(is_edit=True)
+                    msg = await bot.send_photo(self.id_user, item.image_url,
+                                               caption=self.language.preview_purchase(item=item, purchase=purchase),
+                                               reply_markup=self.kb.back())
                 await self.state.update_data(
                     msgs_to_delete=[msg.message_id, ],
                     msg_to_change=self.call
@@ -290,6 +295,11 @@ class HandlerUser:
         elif not amount:
             amount = self.message.text
             if amount.isdigit():
+                if transaction_type == 1 and float(self.user.balance) < amount:
+                    msg = await bot.send_message(self.id_user, self.language.not_enough_money(user=self.user),
+                                                 reply_markup=self.kb.back())
+                    await self.append_msgs_to_delete(message_id=msg.message_id)
+                    return
                 await self.state.update_data(
                     amount=amount
                 )
@@ -300,7 +310,7 @@ class HandlerUser:
                                                      reply_markup=self.kb.back())
                         await self.append_msgs_to_delete(message_id=msg.message_id)
 
-                elif transaction_type ==1:
+                elif transaction_type == 1:
                     address = data.get('address')
                     if not address:
                         msg = await bot.send_message(self.id_user, self.language.insert_address(),
