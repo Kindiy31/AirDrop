@@ -250,6 +250,7 @@ class HandlerUser:
                 if float(self.user.balance) < float(item.price):
                     msg = await bot.send_message(self.id_user, self.language.not_enough_money(user=self.user),
                                                  reply_markup=self.kb.back())
+                    await self.append_msgs_to_delete(message_id=msg.message_id)
                 else:
                     purchase = await db.buy_item(id_user=self.id_user, id_item=item_id)
                     item = await db.take_items(id_item=item_id)
@@ -257,9 +258,10 @@ class HandlerUser:
                     msg = await bot.send_photo(self.id_user, item.image_url,
                                                caption=self.language.preview_purchase(item=item, purchase=purchase),
                                                reply_markup=self.kb.back())
-                await self.state.update_data(
-                    msgs_to_delete=[msg.message_id, ],
-                )
+                    await self.state.update_data(
+                        msgs_to_delete=[msg.message_id, ],
+                        msg_to_change=self.call
+                    )
 
     async def balance_callback(self):
         if len(self.states) == 1:
