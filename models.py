@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Float, Text, Enum
+from sqlalchemy import Column, Integer, BigInteger, String, DateTime, ForeignKey, Boolean, Float, Text, Enum
 from sqlalchemy.types import Enum as SAEnum
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -12,7 +12,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     first_name = Column(String(100))
     username = Column(String(100), unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -29,7 +29,7 @@ class Purchase(Base):
     __tablename__ = "purchases"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(BigInteger, ForeignKey('users.id'))
     item_id = Column(Integer, ForeignKey('items.id'))
     quantity = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -44,7 +44,7 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     transaction_type = Column(Integer)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(BigInteger, ForeignKey('users.id'))
     item_id = Column(Integer, ForeignKey('items.id'), nullable=True)
     amount = Column(Float)
     address = Column(String(100), nullable=True)
