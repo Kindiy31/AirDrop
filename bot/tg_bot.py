@@ -247,7 +247,7 @@ class HandlerUser:
             if self.states[1] == "buy":
                 item_id = int(self.states[2])
                 item = await db.take_items(id_item=item_id)
-                if self.user.balance < item.price:
+                if float(self.user.balance) < float(item.price):
                     msg = await bot.send_message(self.id_user, self.language.not_enough_money(user=self.user),
                                                  reply_markup=self.kb.back())
                 else:
@@ -295,7 +295,7 @@ class HandlerUser:
         elif not amount:
             amount = self.message.text
             if amount.isdigit():
-                if transaction_type == 1 and float(self.user.balance) < amount:
+                if transaction_type == 1 and float(self.user.balance) < float(amount):
                     msg = await bot.send_message(self.id_user, self.language.not_enough_money(user=self.user),
                                                  reply_markup=self.kb.back())
                     await self.append_msgs_to_delete(message_id=msg.message_id)
